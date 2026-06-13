@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>htmlet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #E9E6DE;
+    --card: #FCFBF8;
+    --surface: #F6F4EE;
+    --ink: #1A1916;
+    --ink-2: #6B675E;
+    --faint: #B7B1A4;
+    --rule: #DAD6CB;
+    --accent: #2B50E0;
+    --accent-2: #1E3CC4;
+    --on-accent: #ffffff;
+    --live: #1F9D57;
+    --err: #C0392B;
+    --radius: 10px;
+    --mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Inter Tight", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: clamp(28px, 6vw, 72px) 20px 56px;
+  }
+  .wrap { width: 100%; max-width: 640px; }
+
+  /* Masthead */
+  .topline { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .brand {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 42px);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .brand .bracket { color: var(--accent); }
+  .eyebrow { font-family: var(--mono); color: var(--ink-2); font-size: 13px; margin: 13px 0 22px; }
+  .session { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .session .dot { width: 7px; height: 7px; }
+  .linkbtn {
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-2);
+    background: transparent; border: 0; cursor: pointer; padding: 4px 2px; text-decoration: underline;
+  }
+  .linkbtn:hover { color: var(--accent); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 16px 44px -26px rgba(26,25,22,0.5);
+    animation: rise 0.5s cubic-bezier(0.2,0.7,0.2,1) both;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 1.5px dashed var(--rule);
+    border-radius: var(--radius);
+    padding: 28px 18px;
+    text-align: center;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .dropzone:hover { border-color: var(--accent); }
+  .dropzone.drag { border-color: var(--accent); background: rgba(43,80,224,0.05); }
+  .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dz-glyph { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 22px; }
+  .dz-text { font-family: var(--sans); color: var(--ink-2); font-size: 14px; margin-top: 8px; }
+  .dz-text b { color: var(--ink); }
+  .dz-link { color: var(--accent); text-decoration: underline; }
+  .dz-file { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: var(--mono); font-size: 14px; }
+  .dz-name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60vw; }
+  .dz-size { color: var(--ink-2); font-size: 12.5px; }
+  .dz-clear {
+    border: 1px solid var(--rule); background: transparent; color: var(--ink-2);
+    border-radius: 6px; width: 24px; height: 24px; cursor: pointer; line-height: 1; font-size: 15px;
+  }
+  .dz-clear:hover { border-color: var(--err); color: var(--err); }
+
+  /* Fields */
+  .fields { display: flex; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+  .field { flex: 1; min-width: 160px; display: block; }
+  .flabel { display: block; font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; }
+  .finput { display: flex; align-items: center; background: #fff; border: 1px solid var(--rule); border-radius: 8px; padding: 0 11px; }
+  .finput input { border: 0; outline: none; background: transparent; font-family: var(--mono); font-size: 14px; padding: 9px 0; width: 100%; min-width: 0; }
+  .ext { font-family: var(--mono); font-size: 14px; color: var(--ink-2); padding-left: 2px; }
+  .keyinput {
+    width: 100%; font-family: var(--mono); font-size: 14px; color: var(--ink);
+    background: #fff; border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; outline: none;
+  }
+  .finput:focus-within, .keyinput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(43,80,224,0.15); }
+
+  .formfoot { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+  .hint { font-family: var(--sans); font-size: 12px; color: var(--ink-2); max-width: 60%; }
+  .btn {
+    font-family: var(--sans); font-weight: 600; font-size: 14px;
+    color: var(--on-accent); background: var(--accent); border: 0;
+    border-radius: 8px; padding: 11px 22px; cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+  .btn:hover { background: var(--accent-2); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+
+  .status { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); margin: 13px 2px 0; min-height: 1em; }
+  .status.err { color: var(--err); }
+
+  /* Result: live address bar */
+  .livebar {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px;
+    padding: 11px 12px; background: #fff;
+    border: 1px solid var(--rule); border-left: 3px solid var(--live); border-radius: 10px;
+    animation: rise 0.45s cubic-bezier(0.2,0.7,0.2,1) both;
+  }
+  .livebar .dot { width: 8px; height: 8px; animation: pulse 1.6s ease-out 1; }
+  .addr { font-family: var(--mono); font-size: 14px; color: var(--accent); text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .addr:hover { text-decoration: underline; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); flex: none; }
+  .mini {
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink);
+    background: transparent; border: 1px solid var(--rule); border-radius: 7px;
+    padding: 6px 11px; cursor: pointer; text-decoration: none; white-space: nowrap;
+  }
+  .mini:hover { border-color: var(--accent); color: var(--accent); }
+  .mini.danger:hover { border-color: var(--err); color: var(--err); }
+
+  /* Your pages */
+  .pages { margin-top: 18px; }
+  .phead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .ptitle { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 0; }
+  .pmsg { font-family: var(--mono); font-size: 13px; color: var(--ink-2); margin: 12px 2px; }
+  .prow { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--rule); border-radius: 6px; transition: background 0.4s ease; }
+  .prow:first-of-type { border-top: 0; }
+  .prow.flash { background: rgba(31,157,87,0.12); }
+  .pslug { font-family: var(--mono); font-size: 14px; color: var(--accent); text-decoration: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pslug:hover { text-decoration: underline; }
+  .psize { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .pactions { display: flex; gap: 8px; flex: none; }
+
+  .foot {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-2);
+    margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule);
+    line-height: 1.65; word-break: break-all;
+  }
+  .foot .prompt { color: var(--accent); font-weight: 700; margin-right: 6px; }
+
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(31,157,87,0.45); } 100% { box-shadow: 0 0 0 10px rgba(31,157,87,0); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="topline">
+        <div class="brand"><span class="bracket">&lt;</span>htmlet<span class="bracket">&gt;</span></div>
+        <span class="session" id="session" hidden><span class="dot"></span>signed in<button type="button" class="linkbtn" id="signout">sign out</button></span>
+      </div>
+      <p class="eyebrow">// upload a single HTML file &rarr; a URL that renders it</p>
+    </header>
+
+    <!-- Sign in (shown until a session exists) -->
+    <form class="card" id="loginView" hidden>
+      <div class="field">
+        <span class="flabel">API key</span>
+        <input id="loginKey" class="keyinput" type="password" placeholder="your upload token" autocomplete="current-password" aria-label="API key" />
+      </div>
+      <div class="formfoot">
+        <span class="hint">Signs you in on this browser so you don't re-enter the key. The CLI &amp; agents keep using the key directly.</span>
+        <button id="loginBtn" class="btn" type="submit">Sign in</button>
+      </div>
+      <p id="loginStatus" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <!-- App (shown once signed in) -->
+    <div id="appView" hidden>
+      <form class="card" id="form">
+        <div class="dropzone" id="drop" role="button" tabindex="0" aria-label="Choose or drop an HTML file">
+          <input id="file" type="file" accept=".html,.htm,text/html" hidden />
+          <div id="dzEmpty">
+            <div class="dz-glyph">&lt;/&gt;</div>
+            <div class="dz-text">Drop an <b>.html</b> file here, or <span class="dz-link">choose a file</span></div>
+          </div>
+          <div class="dz-file" id="dzFile" hidden>
+            <span class="dz-name" id="dzName"></span>
+            <span class="dz-size" id="dzSize"></span>
+            <button type="button" class="dz-clear" id="dzClear" aria-label="Remove file">&times;</button>
+          </div>
+        </div>
+
+        <div class="fields">
+          <div class="field">
+            <span class="flabel">Slug (optional)</span>
+            <span class="finput">
+              <input id="slug" type="text" placeholder="auto: html-1" autocomplete="off" spellcheck="false" aria-label="Slug" />
+              <span class="ext">.html</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="formfoot">
+          <span class="hint">Published pages are public at their URL.</span>
+          <button id="submit" class="btn" type="submit">Publish</button>
+        </div>
+      </form>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <div id="result" class="livebar" hidden>
+        <span class="dot"></span>
+        <a id="resultLink" class="addr" href="#" target="_blank" rel="noopener"></a>
+        <button id="copy" type="button" class="mini">Copy</button>
+        <a id="openLink" class="mini" href="#" target="_blank" rel="noopener">Open &#8599;</a>
+      </div>
+
+      <section class="card pages">
+        <div class="phead">
+          <h2 class="ptitle">Your pages</h2>
+          <button class="mini" id="refresh" type="button">Refresh</button>
+        </div>
+        <div id="pages"><p class="pmsg">Loading…</p></div>
+        <input id="rep" type="file" accept=".html,.htm,text/html" hidden />
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span class="prompt">$</span>curl -X POST --data-binary @page.html -H "X-API-Key: &hellip;" &lt;server&gt;/api/upload
+    </footer>
+  </div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const sessionEl = $("session"), signout = $("signout"),
+        loginView = $("loginView"), loginKey = $("loginKey"), loginBtn = $("loginBtn"), loginStatus = $("loginStatus"),
+        appView = $("appView"),
+        form = $("form"), drop = $("drop"), fileInput = $("file"),
+        dzEmpty = $("dzEmpty"), dzFile = $("dzFile"), dzName = $("dzName"), dzSize = $("dzSize"), dzClear = $("dzClear"),
+        slug = $("slug"), statusEl = $("status"),
+        result = $("result"), link = $("resultLink"), openLink = $("openLink"),
+        pagesEl = $("pages"), refresh = $("refresh"), rep = $("rep");
+
+  let selectedFile = null, repSlug = null;
+
+  // Every API call carries X-HS-Auth so cookie auth is honored (and CSRF isn't).
+  const api = (path, opts = {}) => {
+    opts.headers = Object.assign({ "X-HS-Auth": "1" }, opts.headers || {});
+    return fetch(path, opts);
+  };
+  const fmtSize = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+  const cssEsc = (s) => (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\]/g, "\\$&");
+  function setStatus(m, isErr) { statusEl.textContent = m || ""; statusEl.classList.toggle("err", !!isErr); }
+  function setLoginStatus(m, isErr) { loginStatus.textContent = m || ""; loginStatus.classList.toggle("err", !!isErr); }
+
+  function friendly(st, data, ctx) {
+    const m = {
+      400: "Check the slug — letters, numbers, - and _ only.",
+      401: "Session expired — sign in again.",
+      409: "That slug is taken — use Replace on the existing page.",
+      413: "That file is over the size limit.",
+      507: "Storage is full (file limit reached).",
+    };
+    return m[st] || (data && data.detail ? "Error: " + data.detail : (ctx || "Request") + " failed (" + st + ").");
+  }
+  function onAuthLost() { showLogin(); setLoginStatus("Session expired — sign in again.", true); }
+
+  // --- views ---------------------------------------------------------------
+  function showLogin() {
+    loginView.hidden = false; appView.hidden = true; sessionEl.hidden = true;
+    setStatus(""); result.hidden = true;
+    loginKey.focus();
+  }
+  function showApp() {
+    loginView.hidden = true; appView.hidden = false; sessionEl.hidden = false;
+    setLoginStatus("");
+    loadPages();
+  }
+
+  (async function init() {
+    try {
+      const res = await api("/api/session");
+      const data = await res.json();
+      data.authenticated ? showApp() : showLogin();
+    } catch (_) { showLogin(); }
+  })();
+
+  // --- login / logout ------------------------------------------------------
+  loginView.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const key = loginKey.value.trim();
+    if (!key) return setLoginStatus("Enter your API key.", true);
+    loginBtn.disabled = true; setLoginStatus("Signing in…");
+    try {
+      const res = await api("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+      if (res.ok) { loginKey.value = ""; showApp(); }
+      else if (res.status === 401) setLoginStatus("That key didn't match.", true);
+      else setLoginStatus("Sign in failed (" + res.status + ").", true);
+    } catch (_) { setLoginStatus("Network error — is the server reachable?", true); }
+    finally { loginBtn.disabled = false; }
+  });
+
+  signout.addEventListener("click", async () => {
+    try { await api("/api/logout", { method: "POST" }); } catch (_) {}
+    selectedFile = null; setFile(null); slug.value = "";
+    showLogin();
+  });
+
+  // --- drop zone -----------------------------------------------------------
+  function setFile(f) {
+    selectedFile = f || null;
+    if (f) {
+      dzName.textContent = f.name; dzSize.textContent = fmtSize(f.size);
+      dzEmpty.hidden = true; dzFile.hidden = false;
+      if (!slug.value) {
+        const base = f.name.replace(/\.html?$/i, "");
+        if (/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(base)) slug.value = base;
+      }
+    } else {
+      dzEmpty.hidden = false; dzFile.hidden = true; fileInput.value = "";
+    }
+  }
+  drop.addEventListener("click", (e) => { if (e.target !== dzClear) fileInput.click(); });
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+  fileInput.addEventListener("change", (e) => { if (e.target.files[0]) setFile(e.target.files[0]); });
+  dzClear.addEventListener("click", (e) => { e.stopPropagation(); setFile(null); });
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+  drop.addEventListener("dragleave", (e) => { if (!drop.contains(e.relatedTarget)) drop.classList.remove("drag"); });
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f) setFile(f); });
+
+  // --- publish -------------------------------------------------------------
+  function showResult(url) { link.textContent = url; link.href = url; openLink.href = url; result.hidden = false; }
+  $("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(link.textContent); setStatus("Copied to clipboard."); }
+    catch (_) { setStatus("Couldn't copy — select the URL manually.", true); }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return setStatus("Choose an HTML file first.", true);
+    $("submit").disabled = true; setStatus("Publishing…"); result.hidden = true;
+    const fd = new FormData();
+    fd.append("file", selectedFile, selectedFile.name);
+    if (slug.value.trim()) fd.append("slug", slug.value.trim());
+    try {
+      const res = await api("/api/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) return onAuthLost();
+      if (!res.ok) { setStatus(friendly(res.status, data, "Upload"), true); return; }
+      setStatus("Published."); showResult(data.url);
+      setFile(null); slug.value = "";
+      loadPages();
+    } catch (_) { setStatus("Network error — is the server reachable?", true); }
+    finally { $("submit").disabled = false; }
+  });
+
+  // --- manage --------------------------------------------------------------
+  function rowEl(item) {
+    const row = document.createElement("div");
+    row.className = "prow"; row.dataset.slug = item.slug;
+    const dot = document.createElement("span"); dot.className = "dot";
+    const a = document.createElement("a"); a.className = "pslug"; a.href = item.url;
+    a.target = "_blank"; a.rel = "noopener"; a.textContent = item.slug;
+    const size = document.createElement("span"); size.className = "psize"; size.textContent = fmtSize(item.size);
+    const acts = document.createElement("span"); acts.className = "pactions";
+    const rb = document.createElement("button"); rb.type = "button"; rb.className = "mini"; rb.textContent = "Replace";
+    rb.addEventListener("click", () => { repSlug = item.slug; rep.value = ""; rep.click(); });
+    const db = document.createElement("button"); db.type = "button"; db.className = "mini danger"; db.textContent = "Delete";
+    db.addEventListener("click", () => delPage(item.slug, row));
+    acts.append(rb, db);
+    row.append(dot, a, size, acts);
+    return row;
+  }
+
+  async function loadPages() {
+    pagesEl.innerHTML = '<p class="pmsg">Loading…</p>';
+    try {
+      const res = await api("/api/files?limit=1000");
+      if (res.status === 401) { onAuthLost(); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { pagesEl.innerHTML = '<p class="pmsg">Couldn\'t load (' + res.status + ').</p>'; return; }
+      const files = data.files || [];
+      if (!files.length) { pagesEl.innerHTML = '<p class="pmsg">No pages yet — upload one above.</p>'; return; }
+      pagesEl.innerHTML = "";
+      files.forEach((item) => pagesEl.appendChild(rowEl(item)));
+      if (data.total > files.length) {
+        const p = document.createElement("p"); p.className = "pmsg";
+        p.textContent = "Showing " + files.length + " of " + data.total + ".";
+        pagesEl.appendChild(p);
+      }
+    } catch (_) { pagesEl.innerHTML = '<p class="pmsg">Network error.</p>'; }
+  }
+
+  rep.addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    const target = repSlug; repSlug = null;
+    if (!f || !target) return;
+    setStatus("Updating " + target + "…");
+    try {
+      const res = await api("/api/files/" + encodeURIComponent(target), { method: "PUT", headers: { "Content-Type": "text/html" }, body: f });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) return onAuthLost();
+      if (!res.ok) { setStatus(friendly(res.status, data, "Update"), true); return; }
+      setStatus("Updated " + target + ".");
+      const row = pagesEl.querySelector('.prow[data-slug="' + cssEsc(target) + '"]');
+      if (row) { row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1200); }
+      loadPages();
+    } catch (_) { setStatus("Network error.", true); }
+  });
+
+  async function delPage(s, row) {
+    if (!confirm('Delete "' + s + '"? This removes the page permanently.')) return;
+    setStatus("Deleting " + s + "…");
+    try {
+      const res = await api("/api/files/" + encodeURIComponent(s), { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) return onAuthLost();
+      if (!res.ok) { setStatus(friendly(res.status, data, "Delete"), true); return; }
+      setStatus("Deleted " + s + ".");
+      if (row) row.remove();
+      if (!pagesEl.querySelector(".prow")) pagesEl.innerHTML = '<p class="pmsg">No pages yet — upload one above.</p>';
+    } catch (_) { setStatus("Network error.", true); }
+  }
+
+  refresh.addEventListener("click", loadPages);
+})();
+</script>
+</body>
+</html>

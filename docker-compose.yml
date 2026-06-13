@@ -1,0 +1,38 @@
+services:
+  htmlet:
+    build: .
+    image: htmlet:latest
+    environment:
+      # REQUIRED — comma-separated upload tokens. Set in .env (see .env.example).
+      API_KEYS: "${API_KEYS:?set API_KEYS in .env}"
+      DATA_DIR: /data
+      MAX_UPLOAD_BYTES: "${MAX_UPLOAD_BYTES:-5242880}"
+      MAX_FILES: "${MAX_FILES:-10000}"
+      # Set BASE_URL to your public origin so returned links are correct AND so a
+      # client can't spoof the host in returned URLs. Strongly recommended in prod.
+      BASE_URL: "${BASE_URL:-}"
+      # Trust X-Forwarded-* only from your proxy. 127.0.0.1 is safe for the direct
+      # exposure below. Behind a reverse proxy, set this to the proxy's network
+      # (e.g. FORWARDED_ALLOW_IPS=10.0.0.0/8 in .env) so HTTPS/scheme is detected.
+      FORWARDED_ALLOW_IPS: "${FORWARDED_ALLOW_IPS:-127.0.0.1}"
+      CONTENT_SECURITY_POLICY: "${CONTENT_SECURITY_POLICY:-sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads}"
+    volumes:
+      # Bind mount: uploaded pages live in ./data on the host (browse/rsync directly).
+      # The dir must be writable by uid 10001 (the non-root container user):
+      #   mkdir -p data && sudo chown 10001:10001 data   # (sudo not needed on Docker Desktop / macOS)
+      - ./data:/data
+    restart: unless-stopped
+    # Runtime hardening — bound the blast radius of a compromise / DoS. The image
+    # already runs non-root (uid 10001); these add no-extra-privileges, drop all
+    # Linux caps (none are needed to bind :8080 as non-root), and cap memory/PIDs
+    # so a header/body flood can't OOM the host (see DOS-3/DOS-4 in SECURITY_REVIEW.md).
+    mem_limit: 256m
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Direct exposure (no TLS), reachable at http://localhost:8080. For PRODUCTION
+    # use docker-compose.traefik.yml instead (TLS + no exposed app port + rate limits).
+    ports:
+      - "8080:8080"

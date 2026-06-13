@@ -1,0 +1,26 @@
+# The image only COPYs app/ (deps come from the registry), so keep everything
+# else out of the build context for faster, leaner builds.
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.ruff_cache
+.claude
+.playwright-mcp
+data
+dist
+*.egg-info
+.DS_Store
+
+# Secrets / local config — never ship to the daemon.
+.env
+.env.example
+
+# Dev/runtime client, deploy config, and docs aren't part of the server image.
+client
+dynamic
+Caddyfile
+docker-compose*.yml
+Dockerfile*
+*.md

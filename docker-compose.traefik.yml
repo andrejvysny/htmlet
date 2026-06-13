@@ -1,0 +1,153 @@
+# Production deployment: htmlet behind Traefik v3 with automatic HTTPS.
+#
+# What this hardens vs. the plain docker-compose.yml (see SECURITY_REVIEW.md):
+#   * TLS termination + forced HTTP->HTTPS redirect (Let's Encrypt, auto-renewed).
+#   * The app is NOT exposed on the host — it is reachable ONLY through Traefik,
+#     on an `internal` Docker network with no outbound route.
+#   * A request-header size cap at the edge (blunts the DOS-3 header-flood OOM).
+#   * A tight rate limit on /api/login + a looser one elsewhere (the app itself has
+#     no rate limiting — this is the backstop against key brute-forcing / floods).
+#   * Hosted pages served on a SEPARATE cookieless origin from the admin/API host,
+#     so even a fully-malicious uploaded page can never reach the admin session.
+#   * Container resource + capability limits (mem/pids/cap_drop/no-new-privileges/read-only).
+#
+# Before `docker compose -f docker-compose.traefik.yml up -d --build`:
+#   1. Point DNS A/AAAA records for ADMIN_HOST and PAGES_HOST at this server.
+#   2. In .env set: API_KEYS (strong! `openssl rand -hex 32`), ACME_EMAIL,
+#      ADMIN_HOST=admin.example.com, PAGES_HOST=share.example.com,
+#      BASE_URL=https://share.example.com
+#   (FORWARDED_ALLOW_IPS is fixed below to the pinned internal subnet — no need to set it.)
+
+services:
+  traefik:
+    image: traefik:v3.3
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/dynamic
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # Global HTTP -> HTTPS redirect.
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # Bound total request header bytes to blunt the DOS-3 header-flood at the edge.
+      - --entrypoints.websecure.http.maxRequestHeaderBytes=65536
+      # Let's Encrypt via TLS-ALPN challenge (needs only port 443).
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      # Dashboard/API stay OFF. Do NOT add --api.dashboard=true / --api.insecure=true.
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dynamic:/dynamic:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks: [edge, internal]
+    security_opt:
+      - no-new-privileges:true
+
+  htmlet:
+    build: .
+    image: htmlet:latest
+    restart: unless-stopped
+    # NO `ports:` — the app is reachable ONLY via Traefik on the internal network.
+    environment:
+      API_KEYS: "${API_KEYS:?set API_KEYS in .env}"
+      DATA_DIR: /data
+      MAX_UPLOAD_BYTES: "${MAX_UPLOAD_BYTES:-5242880}"
+      MAX_FILES: "${MAX_FILES:-10000}"
+      # Pin the public origin so returned links are correct and the Host header
+      # cannot be spoofed regardless of forwarded-header trust.
+      BASE_URL: "${BASE_URL:?set BASE_URL=https://your-pages-host in .env}"
+      # Trust X-Forwarded-* ONLY from the pinned internal subnet Traefik connects from.
+      FORWARDED_ALLOW_IPS: "172.28.0.0/16"
+    # No `command:` override — the image's `fastapi run` CMD is used (proxy-headers
+    # are on by default; FORWARDED_ALLOW_IPS above is read by uvicorn). The two
+    # former uvicorn-only flags now live at the Traefik edge: the Server header is
+    # stripped by the sec-headers middleware (customResponseHeaders) and concurrency
+    # is capped by the `maxconn` inFlightReq middleware (see labels below).
+    volumes:
+      # Bind mount: pages live in ./data on the host. Create it writable by uid 10001
+      # (the non-root container user) BEFORE first start, or uploads fail with EACCES:
+      #   mkdir -p data && sudo chown 10001:10001 data
+      # read_only rootfs below does not affect this mount — /data stays writable.
+      - ./data:/data
+    networks: [internal]
+    # Resource + capability hardening (bounds OOM blast radius; minimal privileges).
+    mem_limit: 256m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${COMPOSE_PROJECT_NAME:-html-share}_internal
+      - traefik.http.services.htmlet.loadbalancer.server.port=8080
+
+      # --- Router 1: tight rate limit on the login endpoint (brute-force backstop) ---
+      - traefik.http.routers.htmlet-login.rule=Host(`${ADMIN_HOST:?set ADMIN_HOST in .env}`) && Path(`/api/login`)
+      - traefik.http.routers.htmlet-login.priority=100
+      - traefik.http.routers.htmlet-login.entrypoints=websecure
+      - traefik.http.routers.htmlet-login.tls.certresolver=le
+      - traefik.http.routers.htmlet-login.tls.options=modern@file
+      - traefik.http.routers.htmlet-login.middlewares=sec-headers@docker,admin-frame@docker,ratelimit-login@docker,maxconn@docker
+
+      # --- Router 2: admin UI + write API (primary host) ---
+      - traefik.http.routers.htmlet-admin.rule=Host(`${ADMIN_HOST}`)
+      - traefik.http.routers.htmlet-admin.entrypoints=websecure
+      - traefik.http.routers.htmlet-admin.tls.certresolver=le
+      - traefik.http.routers.htmlet-admin.tls.options=modern@file
+      - traefik.http.routers.htmlet-admin.middlewares=sec-headers@docker,admin-frame@docker,ratelimit-api@docker,maxconn@docker
+
+      # --- Router 3: public hosted pages on a SEPARATE cookieless origin ---
+      # (No admin-frame here: hosted pages are sandboxed and may legitimately be embedded.)
+      - traefik.http.routers.htmlet-pages.rule=Host(`${PAGES_HOST:?set PAGES_HOST in .env}`)
+      - traefik.http.routers.htmlet-pages.entrypoints=websecure
+      - traefik.http.routers.htmlet-pages.tls.certresolver=le
+      - traefik.http.routers.htmlet-pages.tls.options=modern@file
+      - traefik.http.routers.htmlet-pages.middlewares=sec-headers@docker,ratelimit-pages@docker,maxconn@docker
+
+      # --- Middlewares ---
+      - traefik.http.middlewares.sec-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.sec-headers.headers.stsIncludeSubdomains=false
+      - traefik.http.middlewares.sec-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.sec-headers.headers.referrerPolicy=no-referrer
+      # Strip the upstream Server header (anti-fingerprinting) — replaces the
+      # former uvicorn --no-server-header. An empty value removes the header.
+      - traefik.http.middlewares.sec-headers.headers.customResponseHeaders.Server=
+      - traefik.http.middlewares.admin-frame.headers.frameDeny=true
+      # Cap simultaneous in-flight requests at the edge — replaces the former
+      # uvicorn --limit-concurrency 200 (rejects excess with 429 before the app).
+      - traefik.http.middlewares.maxconn.inflightreq.amount=200
+      # Rate limits are per source IP (Traefik is the edge, so it sees the real client IP).
+      # If you put a CDN/LB in front of Traefik, configure sourceCriterion accordingly.
+      - traefik.http.middlewares.ratelimit-login.ratelimit.average=10
+      - traefik.http.middlewares.ratelimit-login.ratelimit.period=1m
+      - traefik.http.middlewares.ratelimit-login.ratelimit.burst=5
+      - traefik.http.middlewares.ratelimit-api.ratelimit.average=120
+      - traefik.http.middlewares.ratelimit-api.ratelimit.period=1m
+      - traefik.http.middlewares.ratelimit-api.ratelimit.burst=60
+      - traefik.http.middlewares.ratelimit-pages.ratelimit.average=240
+      - traefik.http.middlewares.ratelimit-pages.ratelimit.period=1m
+      - traefik.http.middlewares.ratelimit-pages.ratelimit.burst=120
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  # htmlet pages are bind-mounted from ./data (see the htmlet service). Only
+  # Traefik's ACME state stays in a named volume.
+  traefik-letsencrypt:

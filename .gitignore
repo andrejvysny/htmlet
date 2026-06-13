@@ -1,0 +1,10 @@
+data/
+.env
+.venv/
+__pycache__/
+*.pyc
+*.tmp
+dist/
+*.egg-info/
+.DS_Store
+.preview-data/
