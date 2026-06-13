@@ -20,6 +20,7 @@ dist
 # Dev/runtime client, deploy config, and docs aren't part of the server image.
 client
 dynamic
+docs
 Caddyfile
 docker-compose*.yml
 Dockerfile*
