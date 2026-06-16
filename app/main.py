@@ -45,6 +45,7 @@ except ImportError:  # pragma: no cover - defensive against version differences
 
 
 _TEMPLATE = Path(__file__).parent / "templates" / "index.html"
+_FAVICON = Path(__file__).parent / "static" / "favicon.svg"
 
 
 def _load_favicon() -> bytes | None:
@@ -273,22 +274,17 @@ def healthz() -> str:
 
 # One SVG favicon serves the whole instance. /favicon.svg is referenced by the
 # admin UI; /favicon.ico catches browsers' implicit request (and gives hosted
-# pages a default icon, which their own <link rel="icon"> can override). The CSP
-# (default-src 'none'; sandbox) is defense-in-depth: image/svg+xml is active
-# content, so a top-level navigation to this URL can't execute script even if the
-# bytes were ever tampered with — matching the sandbox applied to hosted pages.
+# pages a default icon, which their own <link rel="icon"> can override). SVG is
+# read per-request to mirror the index template (edits show without a restart).
 @app.get("/favicon.ico", include_in_schema=False)
 @app.get("/favicon.svg", include_in_schema=False)
 def favicon() -> Response:
-    if _FAVICON_BYTES is None:
-        return Response(status_code=204)
     return Response(
-        content=_FAVICON_BYTES,
+        content=_FAVICON.read_bytes(),
         media_type="image/svg+xml",
         headers={
             "Cache-Control": "public, max-age=86400",
             "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'; sandbox",
         },
     )
 
