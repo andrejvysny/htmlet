@@ -5,6 +5,8 @@ Host a single HTML file at a clean public URL. Upload `page.html`, get back
 
 Uploading needs an API key. Viewing is public.
 
+![htmlet web UI — drag an HTML file in and get a live URL back](docs/screenshot.png)
+
 ## Run it
 
 ```bash

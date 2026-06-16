@@ -4,7 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
+<meta name="description" content="htmlet — host a single HTML file at a clean public URL. Upload an .html file and get back a link that renders it." />
+<meta name="theme-color" content="#E9E6DE" />
 <title>htmlet</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -163,6 +166,41 @@
   }
   .foot .prompt { color: var(--accent); font-weight: 700; margin-right: 6px; }
 
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 1px solid var(--rule); }
+  .tab {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+    background: transparent; border: 0; border-bottom: 2px solid transparent;
+    padding: 9px 12px; margin-bottom: -1px; cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Prompt gallery */
+  .pintro { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: var(--ink-2); margin: 0 2px 16px; }
+  .pintro b { color: var(--ink); }
+  .prompt-list { display: flex; flex-direction: column; gap: 12px; }
+  .pcard {
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 16px; box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 16px 44px -30px rgba(26,25,22,0.45);
+    animation: rise 0.5s cubic-bezier(0.2,0.7,0.2,1) both;
+  }
+  .pcard-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .ptag {
+    display: inline-block; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent);
+    background: rgba(43,80,224,0.08); border-radius: 5px; padding: 3px 8px;
+  }
+  .pcard-title { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 11px 0 3px; }
+  .pcard-desc { font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); margin: 0; }
+  .pcard-body {
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 11px 12px; margin-top: 12px; white-space: pre-wrap;
+  }
+  .mini.ok { border-color: var(--live); color: var(--live); }
+
   [hidden] { display: none !important; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -182,6 +220,11 @@
       </div>
       <p class="eyebrow">// upload a single HTML file &rarr; a URL that renders it</p>
     </header>
+
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" class="tab active" id="tabPublish" role="tab" aria-selected="true">Publish</button>
+      <button type="button" class="tab" id="tabPrompts" role="tab" aria-selected="false">Prompts</button>
+    </nav>
 
     <!-- Sign in (shown until a session exists) -->
     <form class="card" id="loginView" hidden>
@@ -247,6 +290,12 @@
       </section>
     </div>
 
+    <!-- Prompts (always reachable, signed in or not) -->
+    <div id="promptsView" hidden>
+      <p class="pintro">Starter prompts for generating a single HTML file you can publish here. Copy one, hand it to your coding agent, then drop the resulting <b>.html</b> back into the <b>Publish</b> tab.</p>
+      <div id="promptList" class="prompt-list"></div>
+    </div>
+
     <footer class="foot">
       <span class="prompt">$</span>curl -X POST --data-binary @page.html -H "X-API-Key: &hellip;" &lt;server&gt;/api/upload
     </footer>
@@ -258,6 +307,8 @@
   const sessionEl = $("session"), signout = $("signout"),
         loginView = $("loginView"), loginKey = $("loginKey"), loginBtn = $("loginBtn"), loginStatus = $("loginStatus"),
         appView = $("appView"),
+        tabPublish = $("tabPublish"), tabPrompts = $("tabPrompts"),
+        promptsView = $("promptsView"), promptList = $("promptList"),
         form = $("form"), drop = $("drop"), fileInput = $("file"),
         dzEmpty = $("dzEmpty"), dzFile = $("dzFile"), dzName = $("dzName"), dzSize = $("dzSize"), dzClear = $("dzClear"),
         slug = $("slug"), statusEl = $("status"),
@@ -265,6 +316,7 @@
         pagesEl = $("pages"), refresh = $("refresh"), rep = $("rep");
 
   let selectedFile = null, repSlug = null;
+  let authed = false, activeTab = "publish";
 
   // Every API call carries X-HS-Auth so cookie auth is honored (and CSRF isn't).
   const api = (path, opts = {}) => {
@@ -289,14 +341,37 @@
   function onAuthLost() { showLogin(); setLoginStatus("Session expired — sign in again.", true); }
 
   // --- views ---------------------------------------------------------------
+  // Two tabs share the masthead. "Publish" shows the login form or the app
+  // depending on auth; "Prompts" is always reachable, signed in or not.
+  function applyView() {
+    const onPrompts = activeTab === "prompts";
+    promptsView.hidden = !onPrompts;
+    tabPublish.classList.toggle("active", !onPrompts);
+    tabPrompts.classList.toggle("active", onPrompts);
+    tabPublish.setAttribute("aria-selected", String(!onPrompts));
+    tabPrompts.setAttribute("aria-selected", String(onPrompts));
+    sessionEl.hidden = !authed;
+    loginView.hidden = onPrompts || authed;
+    appView.hidden = onPrompts || !authed;
+  }
+  function selectTab(tab) {
+    activeTab = tab;
+    applyView();
+    if (tab === "publish" && !authed) loginKey.focus();
+  }
+  tabPublish.addEventListener("click", () => selectTab("publish"));
+  tabPrompts.addEventListener("click", () => selectTab("prompts"));
+
   function showLogin() {
-    loginView.hidden = false; appView.hidden = true; sessionEl.hidden = true;
+    authed = false;
     setStatus(""); result.hidden = true;
-    loginKey.focus();
+    applyView();
+    if (activeTab === "publish") loginKey.focus();
   }
   function showApp() {
-    loginView.hidden = true; appView.hidden = false; sessionEl.hidden = false;
+    authed = true;
     setLoginStatus("");
+    applyView();
     loadPages();
   }
 
@@ -446,6 +521,87 @@
   }
 
   refresh.addEventListener("click", loadPages);
+
+  // --- prompts -------------------------------------------------------------
+  const PROMPTS = [
+    {
+      tag: "Explain",
+      title: "Explain unfamiliar code",
+      desc: "Turn a subsystem into a page you read once.",
+      body: `I don't understand how our rate limiter actually works. Read the relevant code and produce a single HTML explainer page: a diagram of the token-bucket flow, the 3–4 key code snippets annotated, and a "gotchas" section at the bottom. Optimize it for someone reading it once.`,
+    },
+    {
+      tag: "Organize",
+      title: "Prioritize a backlog",
+      desc: "Draggable Now / Next / Later / Cut board.",
+      body: `I need to reprioritize these 30 Linear tickets. Make me an HTML file with each ticket as a draggable card across Now / Next / Later / Cut columns. Pre-sort them by your best guess. Add a "copy as markdown" button that exports the final ordering with a one-line rationale per bucket.`,
+    },
+    {
+      tag: "Build",
+      title: "Edit a config safely",
+      desc: "Form editor that warns on broken dependencies.",
+      body: `Here's our feature flag config. Build a form-based editor for it, group flags by area, show dependencies between them, warn me if I enable a flag whose prerequisite is off. Add a "copy diff" button that gives me just the changed keys.`,
+    },
+    {
+      tag: "Build",
+      title: "Tune a prompt",
+      desc: "Side-by-side editor with live template preview.",
+      body: `I'm tuning this system prompt. Make a side-by-side editor: editable prompt on the left with the variable slots highlighted, three sample inputs on the right that re-render the filled template live. Add a character/token counter and a copy button.`,
+    },
+    {
+      tag: "Explore",
+      title: "Compare directions",
+      desc: "Six labeled variations, side by side.",
+      body: `I'm not sure what direction to take the onboarding screen. Generate 6 distinctly different approaches — vary layout, tone, and density — and lay them out as a single HTML file in a grid so I can compare them side by side. Label each with the tradeoff it's making.`,
+    },
+    {
+      tag: "Plan",
+      title: "Plan a feature",
+      desc: "Readable plan with mockups and snippets.",
+      body: `Create a thorough implementation plan in a HTML file, be sure to make some mockups, show data flow and add important code snippets I might want to review. Make it easy to read and digest.`,
+    },
+    {
+      tag: "Review",
+      title: "Review a PR",
+      desc: "Annotated diff, findings by severity.",
+      body: `Help me review this PR by creating an HTML artifact that describes it. I'm not very familiar with the streaming/backpressure logic so focus on that. Render the actual diff with inline margin annotations, color-code findings by severity and whatever else might be needed to convey the concept well.`,
+    },
+    {
+      tag: "Prototype",
+      title: "Tweak an animation",
+      desc: "Live sliders for a checkout-button effect.",
+      body: `I want to prototype a new checkout button, when clicked it does a play animation and then turns purple quickly. Create a HTML file with several sliders and options for me to try different options on this animation, give me a copy button to copy the parameters that worked well.`,
+    },
+  ];
+
+  function copyPrompt(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = "Copied"; btn.classList.add("ok");
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("ok"); }, 1200);
+    }).catch(() => {
+      btn.textContent = "Copy failed";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1200);
+    });
+  }
+
+  function renderPrompts() {
+    promptList.innerHTML = "";
+    PROMPTS.forEach((p) => {
+      const card = document.createElement("div"); card.className = "pcard";
+      const top = document.createElement("div"); top.className = "pcard-top";
+      const tag = document.createElement("span"); tag.className = "ptag"; tag.textContent = p.tag;
+      const btn = document.createElement("button"); btn.type = "button"; btn.className = "mini"; btn.textContent = "Copy";
+      btn.addEventListener("click", () => copyPrompt(p.body, btn));
+      top.append(tag, btn);
+      const title = document.createElement("h3"); title.className = "pcard-title"; title.textContent = p.title;
+      const desc = document.createElement("p"); desc.className = "pcard-desc"; desc.textContent = p.desc;
+      const body = document.createElement("div"); body.className = "pcard-body"; body.textContent = p.body;
+      card.append(top, title, desc, body);
+      promptList.appendChild(card);
+    });
+  }
+
+  renderPrompts();
 })();
 </script>
 </body>

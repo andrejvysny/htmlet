@@ -24,7 +24,7 @@ from .config import settings
 
 _SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 RESERVED_SLUGS = frozenset(
-    {"api", "healthz", "health", "robots.txt", "favicon.ico", "static"}
+    {"api", "healthz", "health", "robots.txt", "favicon.ico", "favicon.svg", "static"}
 )
 SLUG_RULE = "must match ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ and not be a reserved word"
 

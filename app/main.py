@@ -46,6 +46,23 @@ except ImportError:  # pragma: no cover - defensive against version differences
 
 _TEMPLATE = Path(__file__).parent / "templates" / "index.html"
 
+
+def _load_favicon() -> bytes | None:
+    """Read the packaged SVG favicon once at import; None if it's missing.
+
+    Unlike the index template (re-read per request so dev edits show live), the
+    favicon is a fixed asset — reading it once avoids per-request disk I/O, and a
+    missing/unreadable file degrades to a 204 instead of a per-request 500 on a
+    path browsers hit implicitly.
+    """
+    try:
+        return (Path(__file__).parent / "static" / "favicon.svg").read_bytes()
+    except OSError:
+        return None
+
+
+_FAVICON_BYTES = _load_favicon()
+
 # CSP for the first-party admin UI (NOT the sandbox CSP used for hosted pages).
 # Allows its own inline script/style, Google Fonts, and same-origin fetches.
 _INDEX_CSP = (
@@ -254,9 +271,26 @@ def healthz() -> str:
     return "ok"
 
 
+# One SVG favicon serves the whole instance. /favicon.svg is referenced by the
+# admin UI; /favicon.ico catches browsers' implicit request (and gives hosted
+# pages a default icon, which their own <link rel="icon"> can override). The CSP
+# (default-src 'none'; sandbox) is defense-in-depth: image/svg+xml is active
+# content, so a top-level navigation to this URL can't execute script even if the
+# bytes were ever tampered with — matching the sandbox applied to hosted pages.
 @app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.svg", include_in_schema=False)
 def favicon() -> Response:
-    return Response(status_code=204)
+    if _FAVICON_BYTES is None:
+        return Response(status_code=204)
+    return Response(
+        content=_FAVICON_BYTES,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
