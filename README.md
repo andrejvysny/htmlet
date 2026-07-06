@@ -11,14 +11,14 @@ Uploading needs an API key. Viewing is public.
 
 ```bash
 cp .env.example .env     # set API_KEYS (generate one: openssl rand -hex 32)
-mkdir -p data            # uploaded pages live here
 docker compose up -d     # pulls the prebuilt image from GHCR
 # open http://localhost:8080
 ```
 
-That's it — one compose file, all config comes from `.env` at start.
+That's it — one compose file, all config comes from `.env` at start. Uploaded
+pages persist in the `htmlet-data` Docker volume (created automatically).
 
-- **Linux servers:** make the data dir writable by the container user: `sudo chown 10001:10001 data` (not needed on Docker Desktop / macOS).
+- **Want pages as plain files on the host?** Swap the volume for `- ./data:/data` in the compose file, then `mkdir -p data && sudo chown 10001:10001 data` (sudo not needed on Docker Desktop / macOS).
 - **Hacking on the code?** `docker compose up -d --build` builds from source instead.
 - **Production TLS?** [docs/traefik/](docs/traefik/docker-compose.yml) adds Let's Encrypt HTTPS, rate limits, and admin/pages origin isolation.
 
