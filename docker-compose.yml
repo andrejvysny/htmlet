@@ -1,7 +1,19 @@
+# The one deploy file. Copy .env.example to .env, set API_KEYS, then:
+#
+#   docker compose up -d
+#
+# That pulls the config-free image CI publishes to GHCR (.github/workflows/build.yml)
+# and injects all config from .env at start time — you only need this file, .env,
+# and ./data on the server. Pin a deploy with HTMLET_TAG in .env (e.g. sha-abc1234).
+#
+# Working on the code? `docker compose up -d --build` builds from source instead.
+# For TLS + rate limits behind Traefik, see docs/traefik/docker-compose.yml.
 services:
   htmlet:
+    image: ghcr.io/williambrach/htmlet:${HTMLET_TAG:-latest}
     build: .
-    image: htmlet:latest
+    # Prefer pulling the published image over building; `--build` overrides.
+    pull_policy: missing
     environment:
       # REQUIRED — comma-separated upload tokens. Set in .env (see .env.example).
       API_KEYS: "${API_KEYS:?set API_KEYS in .env}"
@@ -32,7 +44,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # Direct exposure (no TLS), reachable at http://localhost:8080. For PRODUCTION
-    # use docker-compose.traefik.yml instead (TLS + no exposed app port + rate limits).
+    # Direct exposure (no TLS), reachable at http://localhost:8080. For a hardened
+    # production edge (TLS + no exposed app port + rate limits) see
+    # docs/traefik/docker-compose.yml.
     ports:
       - "8080:8080"

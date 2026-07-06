@@ -7,28 +7,25 @@ Uploading needs an API key. Viewing is public.
 
 ![htmlet web UI — drag an HTML file in and get a live URL back](docs/screenshot.png)
 
-## Run it
+## Deploy
 
 ```bash
-cp .env.example .env     # then edit .env and set a strong API_KEYS
-mkdir -p data            # uploaded pages are stored here (bind-mounted to /data)
-docker compose up -d --build
+cp .env.example .env     # set API_KEYS (generate one: openssl rand -hex 32)
+mkdir -p data            # uploaded pages live here
+docker compose up -d     # pulls the prebuilt image from GHCR
 # open http://localhost:8080
 ```
 
-Pages persist in `./data` on the host. On a **Linux** server the dir must be writable by the non-root container
-user: `sudo chown 10001:10001 data` (not needed on Docker Desktop / macOS).
+That's it — one compose file, all config comes from `.env` at start.
 
-Generate a key for `API_KEYS`:
+- **Linux servers:** make the data dir writable by the container user: `sudo chown 10001:10001 data` (not needed on Docker Desktop / macOS).
+- **Hacking on the code?** `docker compose up -d --build` builds from source instead.
+- **Production TLS?** [docs/traefik/](docs/traefik/docker-compose.yml) adds Let's Encrypt HTTPS, rate limits, and admin/pages origin isolation.
 
-```bash
-openssl rand -hex 32
-```
+## Use
 
-## Use it
-
-**Web UI** — open http://localhost:8080 or https://your-domain, sign in with your key, drop an `.html`
-file, and get the live URL. The page list lets you replace or delete pages.
+**Web UI** — open the site, sign in with your key, drop an `.html` file, get the
+live URL. The page list lets you replace or delete pages.
 
 **curl**
 
@@ -49,5 +46,5 @@ curl -X DELETE -H "X-API-Key: $KEY" $SRV/api/files/landing
 
 ## Config
 
-All settings are environment variables — see `.env.example`. The only required
-one is `API_KEYS` (comma-separated; add a key per user, remove one to revoke).
+Everything is an environment variable — see [.env.example](.env.example).
+Only `API_KEYS` is required (comma-separated: add a key per user, remove one to revoke).

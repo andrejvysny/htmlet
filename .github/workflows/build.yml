@@ -1,0 +1,64 @@
+# Build the htmlet image and push it to GHCR (ghcr.io/williambrach/htmlet).
+#
+# The image is config-free: all runtime configuration (API_KEYS, BASE_URL, ...)
+# is injected at `docker compose up` time from the server's .env — never baked
+# into the image (.env is also excluded via .dockerignore).
+#
+# Tags pushed:
+#   latest        — every push to main
+#   sha-<commit>  — every push to main (pin deploys to this for reproducibility)
+#   X.Y.Z / X.Y   — on vX.Y.Z git tags
+# Pull requests build the image (catching Dockerfile breakage) but do not push.
+#
+# NOTE: the GHCR package is PRIVATE on first push. Either make it public
+# (github.com/users/williambrach/packages) or `docker login ghcr.io` on the
+# deploy server with a read:packages token before `docker compose pull`.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # QEMU + buildx enable the multi-platform (amd64 + arm64) build below.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generates the tag list above plus OCI labels (org.opencontainers.image.
+      # revision/source/...), so any running container traces back to its commit.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

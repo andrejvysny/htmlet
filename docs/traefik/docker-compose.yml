@@ -11,12 +11,24 @@
 #     so even a fully-malicious uploaded page can never reach the admin session.
 #   * Container resource + capability limits (mem/pids/cap_drop/no-new-privileges/read-only).
 #
-# Before `docker compose -f docker-compose.traefik.yml up -d --build`:
+# Deploy: copy this folder (docker-compose.yml + dynamic/) to your server and put
+# your .env next to this file, then:
+#
+#   docker compose pull && docker compose up -d
+#
+# (the htmlet image is built by CI and pulled from GHCR — nothing builds here;
+# uploaded pages land in ./data next to this file)
+#
+# Before first start:
 #   1. Point DNS A/AAAA records for ADMIN_HOST and PAGES_HOST at this server.
 #   2. In .env set: API_KEYS (strong! `openssl rand -hex 32`), ACME_EMAIL,
 #      ADMIN_HOST=admin.example.com, PAGES_HOST=share.example.com,
 #      BASE_URL=https://share.example.com
 #   (FORWARDED_ALLOW_IPS is fixed below to the pinned internal subnet — no need to set it.)
+
+# Pin the project name so the traefik.docker.network label below stays correct
+# no matter what directory this file is copied to.
+name: htmlet
 
 services:
   traefik:
@@ -51,8 +63,10 @@ services:
       - no-new-privileges:true
 
   htmlet:
-    build: .
-    image: htmlet:latest
+    # CI-built, config-free image from GHCR (see .github/workflows/build.yml).
+    # Pin a deploy with HTMLET_TAG in .env (e.g. HTMLET_TAG=sha-abc1234); if the
+    # GHCR package is private, `docker login ghcr.io` on this server first.
+    image: ghcr.io/williambrach/htmlet:${HTMLET_TAG:-latest}
     restart: unless-stopped
     # NO `ports:` — the app is reachable ONLY via Traefik on the internal network.
     environment:
@@ -89,7 +103,7 @@ services:
       - ALL
     labels:
       - traefik.enable=true
-      - traefik.docker.network=${COMPOSE_PROJECT_NAME:-html-share}_internal
+      - traefik.docker.network=${COMPOSE_PROJECT_NAME:-htmlet}_internal
       - traefik.http.services.htmlet.loadbalancer.server.port=8080
 
       # --- Router 1: tight rate limit on the login endpoint (brute-force backstop) ---
