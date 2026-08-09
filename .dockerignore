@@ -25,3 +25,5 @@ Caddyfile
 docker-compose*.yml
 Dockerfile*
 *.md
+# ...except the agent skill, which the app serves at /skill.md.
+!skills/htmlet/SKILL.md

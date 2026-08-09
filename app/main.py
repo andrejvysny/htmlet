@@ -294,6 +294,30 @@ def robots() -> str:
     return "User-agent: *\nDisallow: /api/\n"
 
 
+# The bundled agent skill (skills/htmlet/SKILL.md). Serving it from the app lets
+# a Claude Code / Codex user install it straight from a running instance —
+# `curl -fsSL https://your-domain/skill.md` — without cloning the repo. The slug
+# grammar forbids dots, so no hosted page can ever shadow this path. Read
+# per-request to mirror the index template (edits show without a restart).
+_SKILL = Path(__file__).parent.parent / "skills" / "htmlet" / "SKILL.md"
+
+
+@app.get("/skill.md", include_in_schema=False)
+def skill() -> Response:
+    try:
+        content = _SKILL.read_bytes()
+    except OSError:
+        raise HTTPException(404, "skill file not bundled in this build")
+    return Response(
+        content=content,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Public API (no auth)
 # --------------------------------------------------------------------------- #

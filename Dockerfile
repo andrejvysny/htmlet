@@ -45,6 +45,8 @@ COPY --from=build /opt/venv /opt/venv
 
 WORKDIR /app
 COPY app ./app
+# Agent skill served at /skill.md so agents can be set up from a live instance.
+COPY skills ./skills
 
 # Non-root runtime + writable data volume.
 RUN adduser -D -u 10001 app \

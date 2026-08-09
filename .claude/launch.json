@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "htmlet-preview",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-lc", "API_KEYS=preview-key DATA_DIR=$PWD/.preview-data uv run uvicorn app.main:app --host 127.0.0.1 --port 8155 --no-access-log"],
+      "port": 8155
+    }
+  ]
+}

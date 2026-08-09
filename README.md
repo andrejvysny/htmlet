@@ -44,6 +44,28 @@ curl -H "X-API-Key: $KEY" $SRV/api/files
 curl -X DELETE -H "X-API-Key: $KEY" $SRV/api/files/landing
 ```
 
+**Agents (Claude Code / Codex)** — [skills/htmlet/](skills/htmlet/SKILL.md) is an
+[Agent Skill](https://agentskills.io) that teaches an agent to publish its HTML
+output (reports, dashboards, demos) to your htmlet server and hand back the live
+URL. Every running instance serves its own copy at `/skill.md`, so installing
+needs no clone — one curl against your server:
+
+```bash
+# Claude Code (use .claude/skills/ in a repo for a project-scoped install)
+mkdir -p ~/.claude/skills/htmlet && curl -fsSL https://your-domain/skill.md -o ~/.claude/skills/htmlet/SKILL.md
+
+# Codex
+mkdir -p ~/.codex/skills/htmlet && curl -fsSL https://your-domain/skill.md -o ~/.codex/skills/htmlet/SKILL.md
+```
+
+(No server yet? Swap the URL for
+`https://raw.githubusercontent.com/williambrach/htmlet/main/skills/htmlet/SKILL.md`.)
+
+Then set `HTMLET_SERVER` and `HTMLET_KEY` in the agent's environment and ask for
+things like *"publish this report with htmlet"* — the agent uploads the file and
+returns the shareable link. Named slugs are idempotent, so the agent can keep
+updating a page without changing its URL.
+
 ## Config
 
 Everything is an environment variable — see [.env.example](.env.example).
