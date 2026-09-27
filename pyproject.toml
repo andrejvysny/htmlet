@@ -29,7 +29,9 @@ packages = ["app", "client"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "app/templates/index.html" = "app/templates/index.html"
+"app/templates/folder.html" = "app/templates/folder.html"
 "app/static/favicon.svg" = "app/static/favicon.svg"
+"app/static/index.js" = "app/static/index.js"
 
 
 

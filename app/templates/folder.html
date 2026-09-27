@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>{{FOLDER}} · htmlet</title>
+<style>
+  :root { font-family: system-ui, sans-serif; color: #1a1916; background: #e9e6de; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: clamp(24px, 6vw, 72px) 20px; }
+  main { max-width: 680px; margin: auto; }
+  .brand { color: #2b50e0; font: 700 14px ui-monospace, monospace; text-decoration: none; }
+  h1 { font-size: clamp(28px, 5vw, 42px); overflow-wrap: anywhere; margin: 22px 0 6px; }
+  .hint { color: #6b675e; margin: 0 0 24px; }
+  input { width: 100%; font: inherit; padding: 12px 14px; border: 1px solid #b7b1a4; border-radius: 8px; background: #fff; }
+  input:focus { outline: 2px solid #2b50e0; }
+  ul { list-style: none; padding: 0; margin: 20px 0; }
+  li { margin: 8px 0; }
+  li a { display: flex; justify-content: space-between; gap: 16px; padding: 16px; background: #fcfbf8; border: 1px solid #dad6cb; border-radius: 8px; color: #2b50e0; text-decoration: none; overflow-wrap: anywhere; }
+  li a:hover, li a:focus { border-color: #2b50e0; text-decoration: underline; }
+  .empty { color: #6b675e; padding: 16px 0; }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="/">&lt;htmlet&gt;</a>
+  <h1>{{FOLDER}}</h1>
+  <p class="hint">{{COUNT}} pages · choose one to open</p>
+  <input id="search" type="search" placeholder="Find a page" aria-label="Find a page" autocomplete="off" />
+  <ul id="pages">{{PAGES}}</ul>
+</main>
+<script>
+  const search = document.getElementById("search");
+  search.addEventListener("input", () => {
+    const query = search.value.toLocaleLowerCase();
+    document.querySelectorAll("#pages li a").forEach((link) => {
+      link.parentElement.hidden = !link.textContent.toLocaleLowerCase().includes(query);
+    });
+  });
+</script>
+</body>
+</html>

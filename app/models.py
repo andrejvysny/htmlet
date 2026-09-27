@@ -42,6 +42,20 @@ class FileList(BaseModel):
     files: list[FileEntry]
 
 
+class FolderCreate(BaseModel):
+    slug: str
+
+
+class FolderEntry(BaseModel):
+    slug: str
+    url: str
+    pages: list[FileRef]
+
+
+class FolderList(BaseModel):
+    folders: list[FolderEntry]
+
+
 class DeleteResult(BaseModel):
     deleted: str
 
