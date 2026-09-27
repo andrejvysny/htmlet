@@ -90,6 +90,24 @@ curl -fsS -X DELETE -H "X-API-Key: $HTMLET_KEY" "$HTMLET_SERVER/api/files/my-rep
 # → {"deleted":"my-report"}
 ```
 
+## Share a folder
+
+Create a folder and add existing pages. One page belongs to at most one folder;
+adding it elsewhere moves it. Folder and page slugs follow the same rules.
+
+```bash
+curl -fsS -X POST -H "X-API-Key: $HTMLET_KEY" \
+  -H 'Content-Type: application/json' -d '{"slug":"project"}' \
+  "$HTMLET_SERVER/api/folders"
+curl -fsS -X PUT -H "X-API-Key: $HTMLET_KEY" \
+  "$HTMLET_SERVER/api/folders/project/pages/my-report"
+# Share $HTMLET_SERVER/f/project — visitors can search and open its pages.
+```
+
+`GET /api/folders` lists folders and their pages (key required). Removing a page
+from a folder keeps its public page URL. Deleting a folder keeps all its pages.
+Folder links are public, including the list of page names.
+
 ## Errors
 
 | Status | Meaning | What to do |

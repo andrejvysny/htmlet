@@ -23,6 +23,7 @@ import os
 import secrets
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -42,13 +43,18 @@ def _key(args: argparse.Namespace) -> str:
 
 
 def _request(
-    method: str, url: str, *, data: bytes | None = None, key: str | None = None
+    method: str,
+    url: str,
+    *,
+    data: bytes | None = None,
+    key: str | None = None,
+    content_type: str = "text/html; charset=utf-8",
 ) -> tuple[int, bytes]:
     req = urllib.request.Request(url, data=data, method=method)
     if key:
         req.add_header("X-API-Key", key)
     if data is not None:
-        req.add_header("Content-Type", "text/html; charset=utf-8")
+        req.add_header("Content-Type", content_type)
     try:
         with urllib.request.urlopen(req) as resp:
             return resp.status, resp.read()
@@ -136,6 +142,35 @@ def cmd_genkey(args: argparse.Namespace) -> None:
     print(secrets.token_hex(args.bytes))
 
 
+def cmd_folder(args: argparse.Namespace) -> None:
+    server, key = _server(args), _key(args)
+    folder = urllib.parse.quote(getattr(args, "folder", ""), safe="")
+    page = urllib.parse.quote(getattr(args, "page", ""), safe="")
+    if args.folder_command == "list":
+        status, body = _request("GET", f"{server}/api/folders", key=key)
+        result = _print_json_or_fail(status, body)
+        for item in result["folders"]:
+            print(f"{item['slug']:<24} {len(item['pages']):>4} pages  {item['url']}")
+        return
+    if args.folder_command == "create":
+        status, body = _request(
+            "POST",
+            f"{server}/api/folders",
+            data=json.dumps({"slug": args.folder}).encode(),
+            key=key,
+            content_type="application/json",
+        )
+    elif args.folder_command == "delete":
+        status, body = _request("DELETE", f"{server}/api/folders/{folder}", key=key)
+    else:
+        method = "PUT" if args.folder_command == "add" else "DELETE"
+        status, body = _request(
+            method, f"{server}/api/folders/{folder}/pages/{page}", key=key
+        )
+    result = _print_json_or_fail(status, body)
+    print(result.get("url", result.get("deleted", args.page if page else args.folder)))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="htmlet", description="htmlet CLI")
     parser.add_argument("--server", help="base URL (or HTMLET_SERVER)")
@@ -172,6 +207,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--bytes", type=int, default=32, help="entropy in bytes (default 32)"
     )
     p_gen.set_defaults(func=cmd_genkey)
+
+    p_folder = sub.add_parser("folder", help="manage shareable page folders")
+    folder_sub = p_folder.add_subparsers(dest="folder_command", required=True)
+    for command in ("create", "delete", "add", "remove", "list"):
+        action = folder_sub.add_parser(command)
+        if command != "list":
+            action.add_argument("folder")
+        if command in {"add", "remove"}:
+            action.add_argument("page")
+        action.set_defaults(func=cmd_folder)
     return parser
 
 

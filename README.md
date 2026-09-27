@@ -1,7 +1,8 @@
 # htmlet
 
-Host a single HTML file at a clean public URL. Upload `page.html`, get back
+Host HTML pages at clean public URLs. Upload `page.html`, get back
 `https://your-domain/html-1` — it renders in the browser as real HTML.
+Group pages into folders and share one folder link so visitors can choose a page.
 
 Uploading needs an API key. Viewing is public.
 
@@ -25,7 +26,9 @@ pages persist in the `htmlet-data` Docker volume (created automatically).
 ## Use
 
 **Web UI** — open the site, sign in with your key, drop an `.html` file, get the
-live URL. The page list lets you replace or delete pages.
+live URL. Create a folder, select it beside each page, then copy its public
+`/f/<folder>` link. Visitors can search and open pages from that link. Deleting
+a folder leaves its pages and individual URLs intact.
 
 **curl**
 
@@ -42,7 +45,25 @@ curl -X PUT --data-binary @page.html -H "X-API-Key: $KEY" $SRV/api/files/landing
 # List / delete
 curl -H "X-API-Key: $KEY" $SRV/api/files
 curl -X DELETE -H "X-API-Key: $KEY" $SRV/api/files/landing
+
+# Create a folder, add pages, share its URL
+curl -X POST -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"slug":"project"}' $SRV/api/folders
+curl -X PUT -H "X-API-Key: $KEY" $SRV/api/folders/project/pages/landing
+curl -H "X-API-Key: $KEY" $SRV/api/folders
+# Share $SRV/f/project (public, no key needed)
 ```
+
+Each page belongs to at most one folder. Adding it to another folder moves it.
+`DELETE /api/folders/<folder>/pages/<page>` removes membership;
+`DELETE /api/folders/<folder>` removes only the folder. Existing flat page URLs
+and upload commands keep working. Folder metadata persists in `folders.sqlite3`
+inside the configured data directory.
+
+The CLI offers the same workflow: `htmlet folder create project`,
+`htmlet folder add project landing`, and `htmlet folder list`. Use
+`htmlet folder remove project landing` or `htmlet folder delete project` to
+ungroup pages.
 
 **Agents (Claude Code / Codex)** — [skills/htmlet/](skills/htmlet/SKILL.md) is an
 [Agent Skill](https://agentskills.io) that teaches an agent to publish its HTML

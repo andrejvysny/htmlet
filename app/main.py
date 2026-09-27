@@ -12,11 +12,14 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 
-from . import storage
+from . import folders, storage
 from .config import settings
+from .folder_routes import api as folders_api
+from .folder_routes import public as public_folders
 from .models import (
     DeleteResult,
     FileEntry,
@@ -82,6 +85,7 @@ _INDEX_CSP = (
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings.validate()
+    folders.initialize()
     yield
 
 
@@ -94,6 +98,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/api/openapi.json",
 )
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"))
 
 # Public API routes (no auth): login/logout/session.
 public_api = APIRouter(prefix="/api", tags=["auth"])
@@ -413,12 +418,15 @@ def delete_file(slug: str) -> DeleteResult:
     validate_slug(slug)
     if not storage.delete(slug):
         raise HTTPException(404, "not found")
+    folders.remove_page(slug)
     return DeleteResult(deleted=slug)
 
 
 # Register the API routers BEFORE the catch-all below so /api/* is never shadowed.
 app.include_router(public_api)
 app.include_router(files_api)
+app.include_router(folders_api)
+app.include_router(public_folders)
 
 
 # --------------------------------------------------------------------------- #
